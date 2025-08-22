@@ -17,21 +17,52 @@ jobs:
       run: |
         echo "🔍 Buscando repositorio sistecreditodatos..."
         
-        RESPONSE=$(curl -s -X GET \
+        # Hacer request con mejor manejo de errores
+        RESPONSE=$(curl -s -w "%{http_code}" -X GET \
           "${{ secrets.DATABRICKS_HOST }}/api/2.0/repos" \
           -H "Authorization: Bearer ${{ secrets.DATABRICKS_TOKEN }}" \
           -H "Content-Type: application/json")
         
-        echo "📋 Repositorios encontrados:"
-        echo "$RESPONSE" | jq -r '.repos[] | "\(.id): \(.path)"'
+        # Separar código HTTP del cuerpo de respuesta
+        HTTP_CODE="${RESPONSE: -3}"
+        BODY="${RESPONSE%???}"
         
-        # Buscar repo que contenga "sistecreditodatos" (nombre correcto)
-        REPO_ID=$(echo "$RESPONSE" | jq -r '.repos[] | select(.path | contains("sistecreditodatos")) | .id')
+        echo "📡 HTTP Status: $HTTP_CODE"
+        echo "📋 Response Body: $BODY"
         
-        if [ "$REPO_ID" = "null" ] || [ -z "$REPO_ID" ]; then
-          echo "❌ No se encontró repositorio sistecreditodatos"
-          echo "💡 Verificando nombres disponibles..."
-          echo "$RESPONSE" | jq -r '.repos[] | .path'
+        # Verificar código HTTP
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "❌ Error HTTP $HTTP_CODE"
+          exit 1
+        fi
+        
+        # Verificar si el cuerpo está vacío o es null
+        if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+          echo "❌ Respuesta vacía o null"
+          exit 1
+        fi
+        
+        # Verificar si contiene repos usando jq de manera segura
+        HAS_REPOS=$(echo "$BODY" | jq -e '.repos // empty' > /dev/null 2>&1 && echo "true" || echo "false")
+        
+        if [ "$HAS_REPOS" = "false" ]; then
+          echo "❌ No se encontraron repositorios en la respuesta"
+          echo "💡 Respuesta completa: $BODY"
+          exit 1
+        fi
+        
+        # Listar todos los repos encontrados
+        echo "📋 Repositorios disponibles:"
+        echo "$BODY" | jq -r '.repos[]? | "\(.id): \(.path)"' || echo "Error listando repos"
+        
+        # Buscar repo específico usando jq seguro
+        REPO_ID=$(echo "$BODY" | jq -r '.repos[]? | select(.path | contains("sistecreditodatos")) | .id' | head -1)
+        
+        if [ -z "$REPO_ID" ] || [ "$REPO_ID" = "null" ]; then
+          echo "❌ No se encontró repositorio 'sistecreditodatos'"
+          echo "💡 Verifica que el repositorio existe en Databricks"
+          echo "💡 Repositorios encontrados:"
+          echo "$BODY" | jq -r '.repos[]?.path // "Sin repos"' || echo "No se pudieron listar"
           exit 1
         fi
         
@@ -44,12 +75,22 @@ jobs:
         echo "📍 Repo ID: ${{ steps.find_repo.outputs.repo_id }}"
         echo "🌐 Host: ${{ secrets.DATABRICKS_HOST }}"
         
-        curl -X PATCH \
+        RESPONSE=$(curl -s -w "%{http_code}" -X PATCH \
           "${{ secrets.DATABRICKS_HOST }}/api/2.0/repos/${{ steps.find_repo.outputs.repo_id }}" \
           -H "Authorization: Bearer ${{ secrets.DATABRICKS_TOKEN }}" \
           -H "Content-Type: application/json" \
-          -d '{"branch": "main"}' \
-          --fail-with-body \
-          -v
+          -d '{"branch": "main"}')
         
-        echo "✅ Repositorio sistecreditodatos sincronizado exitosamente!"
+        HTTP_CODE="${RESPONSE: -3}"
+        BODY="${RESPONSE%???}"
+        
+        echo "📡 HTTP Status: $HTTP_CODE"
+        echo "📋 Response: $BODY"
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Repositorio sincronizado exitosamente!"
+        else
+          echo "❌ Error sincronizando: HTTP $HTTP_CODE"
+          echo "📋 Respuesta: $BODY"
+          exit 1
+        fi
