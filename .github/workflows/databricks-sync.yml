@@ -1,96 +1,76 @@
-name: Sync to Databricks Repo
+name: 🎯 Dummy ML Model Validation
 
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  sync-databricks:
+  dummy-validation:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: Checkout code
+    - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
-
-    - name: Find Databricks Repo ID
-      id: find_repo
+      
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: 📦 Install Dependencies
       run: |
-        echo "🔍 Buscando repositorio sistecreditodatos..."
+        python -m pip install --upgrade pip
+        pip install pytest
         
-        # Hacer request con mejor manejo de errores
-        RESPONSE=$(curl -s -w "%{http_code}" -X GET \
-          "${{ secrets.DATABRICKS_HOST }}/api/2.0/repos" \
-          -H "Authorization: Bearer ${{ secrets.DATABRICKS_TOKEN }}" \
-          -H "Content-Type: application/json")
-        
-        # Separar código HTTP del cuerpo de respuesta
-        HTTP_CODE="${RESPONSE: -3}"
-        BODY="${RESPONSE%???}"
-        
-        echo "📡 HTTP Status: $HTTP_CODE"
-        echo "📋 Response Body: $BODY"
-        
-        # Verificar código HTTP
-        if [ "$HTTP_CODE" != "200" ]; then
-          echo "❌ Error HTTP $HTTP_CODE"
-          exit 1
-        fi
-        
-        # Verificar si el cuerpo está vacío o es null
-        if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
-          echo "❌ Respuesta vacía o null"
-          exit 1
-        fi
-        
-        # Verificar si contiene repos usando jq de manera segura
-        HAS_REPOS=$(echo "$BODY" | jq -e '.repos // empty' > /dev/null 2>&1 && echo "true" || echo "false")
-        
-        if [ "$HAS_REPOS" = "false" ]; then
-          echo "❌ No se encontraron repositorios en la respuesta"
-          echo "💡 Respuesta completa: $BODY"
-          exit 1
-        fi
-        
-        # Listar todos los repos encontrados
-        echo "📋 Repositorios disponibles:"
-        echo "$BODY" | jq -r '.repos[]? | "\(.id): \(.path)"' || echo "Error listando repos"
-        
-        # Buscar repo específico usando jq seguro
-        REPO_ID=$(echo "$BODY" | jq -r '.repos[]? | select(.path | contains("sistecreditodatos")) | .id' | head -1)
-        
-        if [ -z "$REPO_ID" ] || [ "$REPO_ID" = "null" ]; then
-          echo "❌ No se encontró repositorio 'sistecreditodatos'"
-          echo "💡 Verifica que el repositorio existe en Databricks"
-          echo "💡 Repositorios encontrados:"
-          echo "$BODY" | jq -r '.repos[]?.path // "Sin repos"' || echo "No se pudieron listar"
-          exit 1
-        fi
-        
-        echo "✅ Repo ID encontrado: $REPO_ID"
-        echo "repo_id=$REPO_ID" >> $GITHUB_OUTPUT
-
-    - name: Update Databricks Repo
+    - name: 🏗️ Create Test Structure
       run: |
-        echo "🔄 Actualizando repositorio sistecreditodatos..."
-        echo "📍 Repo ID: ${{ steps.find_repo.outputs.repo_id }}"
-        echo "🌐 Host: ${{ secrets.DATABRICKS_HOST }}"
+        mkdir -p tests reports notebooks
+        echo "📁 Estructura de directorios creada"
         
-        RESPONSE=$(curl -s -w "%{http_code}" -X PATCH \
-          "${{ secrets.DATABRICKS_HOST }}/api/2.0/repos/${{ steps.find_repo.outputs.repo_id }}" \
-          -H "Authorization: Bearer ${{ secrets.DATABRICKS_TOKEN }}" \
-          -H "Content-Type: application/json" \
-          -d '{"branch": "main"}')
+    - name: 🧪 Run Dummy Validation Tests
+      run: |
+        echo "🔬 Ejecutando tests de validación dummy..."
+        python test/test_dummy_validation.py
         
-        HTTP_CODE="${RESPONSE: -3}"
-        BODY="${RESPONSE%???}"
+    - name: ✅ Validation Success
+      run: |
+        echo "🎉 ¡Validación dummy completada exitosamente!"
+        echo "✅ Todos los tests pasaron"
+        echo "🚀 Código aprobado para merge"
         
-        echo "📡 HTTP Status: $HTTP_CODE"
-        echo "📋 Response: $BODY"
+    # ⚡ CAMBIO CLAVE: v3 → v4
+    - name: 📊 Upload Test Reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: validation-reports
+        path: reports/
         
-        if [ "$HTTP_CODE" = "200" ]; then
-          echo "✅ Repositorio sincronizado exitosamente!"
-        else
-          echo "❌ Error sincronizando: HTTP $HTTP_CODE"
-          echo "📋 Respuesta: $BODY"
-          exit 1
-        fi
+    - name: 💬 Success Comment
+      if: github.event_name == 'pull_request' && success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🎉 Validación Dummy Exitosa
+            
+            ✅ **Status**: Todos los tests pasaron - Código aprobado para merge
+            
+            ### Tests Ejecutados (Dummy Mode):
+            - ✅ Estructura del repositorio
+            - ✅ Métricas del modelo (simuladas)  
+            - ✅ Validación de datos (simulada)
+            - ✅ Estabilidad del modelo (simulada)
+            - ✅ Deployment readiness (simulado)
+            - ✅ Reporte de validación generado
+            
+            📝 **Siguiente paso**: Integrar validación con datos reales
+            
+            ---
+            *🤖 Automated validation by MLOps Pipeline (Dummy Mode)*`
+          });
