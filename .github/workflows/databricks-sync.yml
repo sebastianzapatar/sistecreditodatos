@@ -1,4 +1,4 @@
-name: Sync to Databricks on Push
+name: Sync to Databricks Repo
 
 on:
   push:
@@ -10,25 +10,46 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+
+    - name: Find Databricks Repo ID
+      id: find_repo
+      run: |
+        echo "🔍 Buscando repositorio sistecreditodatos..."
+        
+        RESPONSE=$(curl -s -X GET \
+          "${{ secrets.DATABRICKS_HOST }}/api/2.0/repos" \
+          -H "Authorization: Bearer ${{ secrets.DATABRICKS_TOKEN }}" \
+          -H "Content-Type: application/json")
+        
+        echo "📋 Repositorios encontrados:"
+        echo "$RESPONSE" | jq -r '.repos[] | "\(.id): \(.path)"'
+        
+        # Buscar repo que contenga "sistecreditodatos" (nombre correcto)
+        REPO_ID=$(echo "$RESPONSE" | jq -r '.repos[] | select(.path | contains("sistecreditodatos")) | .id')
+        
+        if [ "$REPO_ID" = "null" ] || [ -z "$REPO_ID" ]; then
+          echo "❌ No se encontró repositorio sistecreditodatos"
+          echo "💡 Verificando nombres disponibles..."
+          echo "$RESPONSE" | jq -r '.repos[] | .path'
+          exit 1
+        fi
+        
+        echo "✅ Repo ID encontrado: $REPO_ID"
+        echo "repo_id=$REPO_ID" >> $GITHUB_OUTPUT
 
     - name: Update Databricks Repo
       run: |
-        echo "🔄 Updating sistecreditodb repo..."
-        
-        # Usar el ID exacto del repo
-        REPO_ID="3833560475326499"
-        
-        echo "📍 Using repo ID: $REPO_ID"
+        echo "🔄 Actualizando repositorio sistecreditodatos..."
+        echo "📍 Repo ID: ${{ steps.find_repo.outputs.repo_id }}"
         echo "🌐 Host: ${{ secrets.DATABRICKS_HOST }}"
         
-        # Actualizar repo con el hostname correcto
         curl -X PATCH \
-          "${{ secrets.DATABRICKS_HOST }}/api/2.0/repos/$REPO_ID" \
+          "${{ secrets.DATABRICKS_HOST }}/api/2.0/repos/${{ steps.find_repo.outputs.repo_id }}" \
           -H "Authorization: Bearer ${{ secrets.DATABRICKS_TOKEN }}" \
           -H "Content-Type: application/json" \
           -d '{"branch": "main"}' \
           --fail-with-body \
           -v
         
-        echo "✅ Databricks repo synced successfully!"
+        echo "✅ Repositorio sistecreditodatos sincronizado exitosamente!"
