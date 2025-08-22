@@ -1,0 +1,14 @@
+{
+  "validation_timestamp": "2025-08-22T13:31:31.903047",
+  "validation_status": "PASSED",
+  "tests_run": 7,
+  "tests_passed": 7,
+  "tests_failed": 0,
+  "model_ready_for_production": true,
+  "dummy_mode": true,
+  "next_steps": [
+    "Integrar validaci\u00f3n con datos reales",
+    "Cargar modelo desde ADLS Gen2",
+    "Implementar tests de performance"
+  ]
+}

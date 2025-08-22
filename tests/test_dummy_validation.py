@@ -228,5 +228,6 @@ success = run_tests()
 
 if success:
     print("\n🏆 === PIPELINE DUMMY COMPLETADO CON ÉXITO ===")
+    print("ESO!!!")
 else:
     print("\n💥 === PIPELINE DUMMY FALLÓ ===")
