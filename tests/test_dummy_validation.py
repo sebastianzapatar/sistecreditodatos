@@ -1,8 +1,7 @@
-# tests/test_dummy_validation.py
+# tests/test_dummy_validation.py (VERSIÓN CORREGIDA PARA DATABRICKS)
 import unittest
 import os
 import json
-from datetime import datetime
 from datetime import datetime
 
 def write_approval_manifest_to_adls(storage_account_name="sistecreditofinal"):
@@ -58,6 +57,7 @@ def write_approval_manifest_to_adls(storage_account_name="sistecreditofinal"):
     except Exception as e:
         print(f"❌ Error escribiendo manifest: {e}")
         return None
+
 class DummyMLValidationTest(unittest.TestCase):
     """Tests dummy para probar el pipeline CI/CD - Siempre pasan"""
     
@@ -160,14 +160,14 @@ class DummyMLValidationTest(unittest.TestCase):
         validation_report = {
             "validation_timestamp": datetime.now().isoformat(),
             "validation_status": "PASSED",
-            "tests_run": 6,
-            "tests_passed": 6,
+            "tests_run": 7,
+            "tests_passed": 7,
             "tests_failed": 0,
             "model_ready_for_production": True,
             "dummy_mode": True,
             "next_steps": [
                 "Integrar validación con datos reales",
-                "Cargar modelo desde ADLS Gen2",
+                "Cargar modelo desde ADLS Gen2", 
                 "Implementar tests de performance"
             ]
         }
@@ -180,7 +180,8 @@ class DummyMLValidationTest(unittest.TestCase):
         self.assertTrue(validation_report['model_ready_for_production'])
         print("✅ Reporte de validación generado")
         print(f"✅ Status: {validation_report['validation_status']}")
-     def test_07_write_approval_manifest(self):
+
+    def test_07_write_approval_manifest(self):
         """Test 7: Escribir manifest SOLO si todos los tests anteriores pasaron"""
         print("\n🧪 Test 7: Escribiendo manifest de aprobación...")
     
@@ -193,9 +194,39 @@ class DummyMLValidationTest(unittest.TestCase):
 
     def tearDown(self):
         print("🧹 Limpiando después del test...")
-    def tearDown(self):
-        print("🧹 Limpiando después del test...")
 
-if __name__ == '__main__':
+# === EJECUTAR TESTS EN DATABRICKS ===
+def run_tests():
+    """Función para ejecutar tests en Databricks sin problemas"""
+    
     print("🚀 === INICIANDO VALIDACIÓN DUMMY ===")
-    unittest.main(verbosity=2)
+    
+    # Crear suite de tests
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromTestCase(DummyMLValidationTest)
+    
+    # Ejecutar tests
+    runner = unittest.TextTestRunner(verbosity=2, stream=sys.stdout, buffer=False)
+    result = runner.run(suite)
+    
+    # Mostrar resultado final
+    if result.wasSuccessful():
+        print("\n🎉 === TODOS LOS TESTS PASARON ===")
+        print("✅ Modelo aprobado para producción")
+        print("✅ Manifest escrito en ADLS Gen2")
+        print("🚀 Pipeline dummy completado exitosamente")
+    else:
+        print("\n❌ === ALGUNOS TESTS FALLARON ===") 
+        print(f"❌ Errores: {len(result.errors)}")
+        print(f"❌ Fallos: {len(result.failures)}")
+    
+    return result.wasSuccessful()
+
+# EJECUTAR EN DATABRICKS
+import sys
+success = run_tests()
+
+if success:
+    print("\n🏆 === PIPELINE DUMMY COMPLETADO CON ÉXITO ===")
+else:
+    print("\n💥 === PIPELINE DUMMY FALLÓ ===")
