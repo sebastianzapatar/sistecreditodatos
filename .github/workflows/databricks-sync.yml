@@ -1,76 +1,101 @@
-name: 🎯 Dummy ML Model Validation
+name: 🔬 Real Model Validation from ADLS Gen2
 
 on:
   push:
     branches: [ main ]
+    # REMOVER paths filter o usar paths más amplios
+    paths:
+      - 'tests/**'      # Cambiar a 'tests' (plural)
+      - '**.py'         # O incluir todos los archivos Python
+      - '.github/**'    # O workflows
   pull_request:
     branches: [ main ]
 
 jobs:
-  dummy-validation:
+  validate-real-model:
     runs-on: ubuntu-latest
     
     steps:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
-      
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}  # O tu PAT si tienes problemas
+        
     - name: 🐍 Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'
         
     - name: 📦 Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest
+        pip install scikit-learn pandas numpy joblib pytest
+        pip install azure-storage-file-datalake azure-identity
         
-    - name: 🏗️ Create Test Structure
+    - name: 🔍 Verify Environment and Files
       run: |
-        mkdir -p tests reports notebooks
-        echo "📁 Estructura de directorios creada"
+        echo "🔧 Verificando configuración..."
+        python -c "import azure.storage.filedatalake; print('✅ Azure SDK disponible')"
+        python -c "import sklearn; print('✅ Scikit-learn disponible')"
         
-    - name: 🧪 Run Dummy Validation Tests
+        echo "📂 Verificando archivos de test..."
+        ls -la tests/ || echo "❌ Directorio tests/ no existe"
+        ls -la tests/test_real_perdida_cartera.py || echo "❌ Archivo test no existe"
+        
+    - name: 🧪 Run Real Model Validation from ADLS Gen2
+      env:
+        AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
       run: |
-        echo "🔬 Ejecutando tests de validación dummy..."
-        python tests/test_dummy_validation.py
+        echo "🔬 Ejecutando validación real del modelo..."
         
-    - name: ✅ Validation Success
+        # Verificar si el archivo existe antes de ejecutar
+        if [ -f "tests/test_real_perdida_cartera.py" ]; then
+          python tests/test_real_perdida_cartera.py
+        else
+          echo "❌ Archivo tests/test_real_perdida_cartera.py no encontrado"
+          echo "📂 Archivos disponibles en tests/:"
+          ls -la tests/ || echo "Directorio tests/ no existe"
+          exit 1
+        fi
+        
+    - name: 📊 Generate Success Report
+      if: success()
       run: |
-        echo "🎉 ¡Validación dummy completada exitosamente!"
-        echo "✅ Todos los tests pasaron"
-        echo "🚀 Código aprobado para merge"
+        echo "## 🎉 Real Model Validation SUCCESS" > validation_report.md
+        echo "" >> validation_report.md
+        echo "✅ **Status**: Model successfully validated from ADLS Gen2" >> validation_report.md
+        echo "" >> validation_report.md
+        echo "### 🔬 Real Validation Results:" >> validation_report.md
+        echo "- ✅ **Model Loading**: Loaded from ADLS Gen2 successfully" >> validation_report.md
+        echo "- ✅ **Real Performance**: Evaluated with real test data" >> validation_report.md
+        echo "- ✅ **Manifest Consistency**: Metrics match real evaluation" >> validation_report.md
+        echo "- ✅ **Data Quality**: Test data passes quality checks" >> validation_report.md
+        echo "- ✅ **Production Ready**: All production criteria met" >> validation_report.md
+        echo "" >> validation_report.md
+        echo "### 🚀 Deployment Approved:" >> validation_report.md
+        echo "- Model meets all production thresholds" >> validation_report.md
+        echo "- Real performance validated with actual data" >> validation_report.md
+        echo "- Ready for production deployment" >> validation_report.md
+        echo "" >> validation_report.md
+        echo "---" >> validation_report.md
+        echo "*🤖 Real validation by MLOps Pipeline - ADLS Gen2 Integration*" >> validation_report.md
         
-    # ⚡ CAMBIO CLAVE: v3 → v4
-    - name: 📊 Upload Test Reports
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: validation-reports
-        path: reports/
-        
-    - name: 💬 Success Comment
-      if: github.event_name == 'pull_request' && success()
+    - name: 📝 Comment PR with Results
+      if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
       with:
         script: |
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: `## 🎉 Validación Dummy Exitosa
+          const fs = require('fs');
+          
+          if (fs.existsSync('validation_report.md')) {
+            const report = fs.readFileSync('validation_report.md', 'utf8');
             
-            ✅ **Status**: Todos los tests pasaron - Código aprobado para merge
-            
-            ### Tests Ejecutados (Dummy Mode):
-            - ✅ Estructura del repositorio
-            - ✅ Métricas del modelo (simuladas)  
-            - ✅ Validación de datos (simulada)
-            - ✅ Estabilidad del modelo (simulada)
-            - ✅ Deployment readiness (simulado)
-            - ✅ Reporte de validación generado
-            
-            📝 **Siguiente paso**: Integrar validación con datos reales
-            
-            ---
-            *🤖 Automated validation by MLOps Pipeline (Dummy Mode)*`
-          });
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+          } else {
+            console.log('No validation report found');
+          }
