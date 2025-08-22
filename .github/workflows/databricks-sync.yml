@@ -1,78 +1,22 @@
-name: 🔬 Real Model Validation from ADLS Gen2
+name: Databricks Sync
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'test/**'
+    branches: [ main ]  # ← RAMA CORRECTA
   pull_request:
     branches: [ main ]
 
 jobs:
-  validate-real-model:
+  sync-databricks:
     runs-on: ubuntu-latest
     
     steps:
-    - name: 🔄 Checkout Repository
+    - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name:  Setup Python
-      uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        token: ${{ secrets.MY_PAT }}
         
-    - name:  Install Dependencies
+    - name: Find Databricks Repo ID
       run: |
-        python -m pip install --upgrade pip
-        pip install scikit-learn pandas numpy joblib pytest
-        pip install azure-storage-file-datalake azure-identity
-        
-    - name: 🔍 Verify Environment
-      run: |
-        echo "🔧 Verificando configuración..."
-        python -c "import azure.storage.filedatalake; print(' Azure SDK disponible')"
-        python -c "import sklearn; print(' Scikit-learn disponible')"
-        
-    - name:  Run Real Model Validation from ADLS Gen2
-      env:
-        AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
-      run: |
-        echo "🔬 Ejecutando validación real del modelo desde ADLS Gen2..."
-        python tests/test_model_real_from_adls2.py
-        
-    - name: 📊 Generate Success Report
-      if: success()
-      run: |
-        echo "## 🎉 Real Model Validation SUCCESS" > validation_report.md
-        echo "" >> validation_report.md
-        echo " **Status**: Model successfully validated from ADLS Gen2" >> validation_report.md
-        echo "" >> validation_report.md
-        echo "### 🔬 Real Validation Results:" >> validation_report.md
-        echo "- **Model Loading**: Loaded from ADLS Gen2 successfully" >> validation_report.md
-        echo "- **Real Performance**: Evaluated with real test data" >> validation_report.md
-        echo "- **Manifest Consistency**: Metrics match real evaluation" >> validation_report.md
-        echo "-  **Data Quality**: Test data passes quality checks" >> validation_report.md
-        echo "-  **Production Ready**: All production criteria met" >> validation_report.md
-        echo "" >> validation_report.md
-        echo "###  Deployment Approved:" >> validation_report.md
-        echo "- Model meets all production thresholds" >> validation_report.md
-        echo "- Real performance validated with actual data" >> validation_report.md
-        echo "- Ready for production deployment" >> validation_report.md
-        echo "" >> validation_report.md
-        echo "---" >> validation_report.md
-        echo "* Real validation by MLOps Pipeline - ADLS Gen2 Integration*" >> validation_report.md
-        
-    - name:  Comment PR with Results
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const report = fs.readFileSync('validation_report.md', 'utf8');
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: report
-          });
+        echo "🔍 Buscando repositorio..."
+        # Tu código para encontrar Repo ID
