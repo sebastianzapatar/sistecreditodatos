@@ -17,7 +17,7 @@ jobs:
     - name: 🐍 Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'
         
     - name: 📦 Install Dependencies
       run: |
@@ -32,7 +32,7 @@ jobs:
     - name: 🧪 Run Dummy Validation Tests
       run: |
         echo "🔬 Ejecutando tests de validación dummy..."
-        python test/test_dummy_validation.py
+        python tests/test_dummy_validation.py
         
     - name: ✅ Validation Success
       run: |
