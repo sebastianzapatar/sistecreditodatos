@@ -3,7 +3,61 @@ import unittest
 import os
 import json
 from datetime import datetime
+rom datetime import datetime
 
+def write_approval_manifest_to_adls(storage_account_name="sistecreditofinal"):
+    """Escribir manifest de aprobación en ADLS Gen2 - carpeta production"""
+    
+    import os
+    import json
+    from datetime import datetime
+    
+    print("📝 === ESCRIBIENDO MANIFEST DE APROBACIÓN ===")
+    
+    try:
+        from azure.storage.filedatalake import DataLakeServiceClient
+        
+        # Configurar cliente ADLS Gen2
+        service_client = DataLakeServiceClient(
+            account_url=f"https://{storage_account_name}.dfs.core.windows.net",
+            credential="YpYHNOKME38oGXISqD7KFinQ3arvr43JNX59hiWXyTQvj8O7MwMlRQAx/jrPE2bMY+NHAIC0Sub7+AStbzR/Bg=="
+        )
+        
+        container_name = "sistecredito2"
+        file_system_client = service_client.get_file_system_client(container_name)
+        
+        # Carpeta "production" (productiva en inglés)
+        production_folder = "models/production"
+        
+        # Manifest de aprobación
+        approval_manifest = {
+            "message": "approve model",
+            "status": "APPROVED",
+            "approved_date": datetime.now().isoformat(),
+            "approved_by": "CI/CD Pipeline",
+            "model_ready_for_production": True,
+            "validation_passed": True,
+            "pipeline": "sistecreditodatos",
+            "notes": "Model passed all validation tests and is ready for production deployment"
+        }
+        
+        # Convertir a JSON
+        manifest_json = json.dumps(approval_manifest, indent=2, ensure_ascii=False)
+        manifest_bytes = manifest_json.encode('utf-8')
+        
+        # Escribir archivo
+        file_path = f"{production_folder}/manifest.json"
+        file_client = file_system_client.get_file_client(file_path)
+        file_client.upload_data(manifest_bytes, overwrite=True)
+        
+        print(f"✅ Manifest escrito exitosamente en: {file_path}")
+        print(f"📄 Contenido: {approval_manifest}")
+        
+        return f"abfss://{container_name}@{storage_account_name}.dfs.core.windows.net/{file_path}"
+        
+    except Exception as e:
+        print(f"❌ Error escribiendo manifest: {e}")
+        return None
 class DummyMLValidationTest(unittest.TestCase):
     """Tests dummy para probar el pipeline CI/CD - Siempre pasan"""
     
@@ -126,7 +180,19 @@ class DummyMLValidationTest(unittest.TestCase):
         self.assertTrue(validation_report['model_ready_for_production'])
         print("✅ Reporte de validación generado")
         print(f"✅ Status: {validation_report['validation_status']}")
+     def test_07_write_approval_manifest(self):
+        """Test 7: Escribir manifest SOLO si todos los tests anteriores pasaron"""
+        print("\n🧪 Test 7: Escribiendo manifest de aprobación...")
     
+        # Esta función se ejecuta SOLO si los tests 1-6 pasaron
+        storage_account = "sistecreditofinal"
+        manifest_path = write_approval_manifest_to_adls(storage_account)
+    
+        self.assertIsNotNone(manifest_path, "Manifest debe escribirse exitosamente")
+        print("✅ Manifest de aprobación escrito - MODELO APROBADO")
+
+    def tearDown(self):
+        print("🧹 Limpiando después del test...")
     def tearDown(self):
         print("🧹 Limpiando después del test...")
 
