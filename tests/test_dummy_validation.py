@@ -3,7 +3,7 @@ import unittest
 import os
 import json
 from datetime import datetime
-rom datetime import datetime
+from datetime import datetime
 
 def write_approval_manifest_to_adls(storage_account_name="sistecreditofinal"):
     """Escribir manifest de aprobación en ADLS Gen2 - carpeta production"""
